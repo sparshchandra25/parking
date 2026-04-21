@@ -74,17 +74,27 @@ export default function App() {
   const [notif, setNotif] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
   const fetchStatus = async () => {
-    try {
-      const res = await fetch('http://localhost:3000/api/parking/status');
-      const data = await res.json();
-      setSlots(data.slots);
-      setPrices(data.prices);
-    } catch (err) {
-      console.error("Failed to fetch slots", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const initialSlots: Slot[] = [];
+
+  for (let i = 1; i <= 36; i++) {
+    initialSlots.push({
+      id: i,
+      level: i <= 18 ? 1 : 2,
+      type: i % 3 === 0 ? 'CAR' : i % 3 === 1 ? 'BIKE' : 'TRUCK',
+      occupiedBy: null,
+    });
+  }
+
+  setSlots(initialSlots);
+
+  setPrices({
+    BIKE: 2,
+    CAR: 5,
+    TRUCK: 10,
+  });
+
+  setLoading(false);
+};
 
   useEffect(() => {
     fetchStatus();
