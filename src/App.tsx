@@ -149,27 +149,33 @@ export default function App() {
 };
 
   const handleRelease = (slotId: number) => {
+  let found = false;
+
   setSlots((prev) =>
     prev.map((slot) => {
-      if (slot.id !== slotId || !slot.occupiedBy) return slot;
+      if (slot.id === slotId && slot.occupiedBy) {
+        found = true;
 
-      const durationHours =
-        (Date.now() - slot.occupiedBy.entryTime) / (1000 * 60 * 60);
+        const durationHours =
+          (Date.now() - slot.occupiedBy.entryTime) / (1000 * 60 * 60);
 
-      const rate = prices[slot.occupiedBy.type] || 0;
-      const amount = durationHours * rate;
+        const rate = prices[slot.occupiedBy.type] || 0;
+        const amount = durationHours * rate;
 
-      showNotification(
-        `Payment: ₹${amount.toFixed(2)} (${durationHours.toFixed(1)} hr)`,
-        "success"
-      );
+        showNotification(
+          `Payment: ₹${amount.toFixed(2)} (${durationHours.toFixed(1)} hr)`,
+          "success"
+        );
 
-      return {
-        ...slot,
-        occupiedBy: null,
-      };
+        return { ...slot, occupiedBy: null };
+      }
+      return slot;
     })
   );
+
+  if (!found) {
+    showNotification("Slot already empty", "error");
+  }
 };
 
   const showNotification = (msg: string, type: 'success' | 'error') => {
