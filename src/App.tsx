@@ -75,7 +75,7 @@ export default function App() {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch('/api/parking/status');
+      const res = await fetch('http://localhost:3000/api/parking/status');
       const data = await res.json();
       setSlots(data.slots);
       setPrices(data.prices);
