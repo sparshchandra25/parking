@@ -93,28 +93,52 @@ export default function App() {
   }, []);
 
   const handlePark = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newVehicle.plate) return;
+  e.preventDefault();
+  if (!newVehicle.plate) return;
 
-    try {
-      const res = await fetch('/api/parking/park', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newVehicle)
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification(`Vehicle ${newVehicle.plate} secure at Bay ${data.slotId}`, 'success');
-        setNewVehicle({ plate: '', type: 'CAR' });
-        setShowParkModal(false);
-        fetchStatus();
-      } else {
-        showNotification(data.message, 'error');
-      }
-    } catch (err) {
-      showNotification("Failed to connect to parking sensors", 'error');
+  try {
+    let allocatedSlotId: number | null = null;
+
+    setSlots((prev) => {
+      const emptySlot = prev.find(
+        (s) =>
+          !s.occupiedBy &&
+          s.level === currentLevel &&
+          s.type === newVehicle.type
+      );
+
+      if (!emptySlot) return prev;
+
+      allocatedSlotId = emptySlot.id;
+
+      return prev.map((slot) =>
+        slot.id === emptySlot.id
+          ? {
+              ...slot,
+              occupiedBy: {
+                plate: newVehicle.plate,
+                type: newVehicle.type,
+                entryTime: Date.now(),
+              },
+            }
+          : slot
+      );
+    });
+
+    if (allocatedSlotId !== null) {
+      showNotification(
+        `Vehicle ${newVehicle.plate} secure at Bay ${allocatedSlotId}`,
+        "success"
+      );
+      setNewVehicle({ plate: "", type: "CAR" });
+      setShowParkModal(false);
+    } else {
+      showNotification("No available slots", "error");
     }
-  };
+  } catch (err) {
+    showNotification("Failed to process parking request", "error");
+  }
+};
 
   const handleRelease = async (slotId: number) => {
     try {
