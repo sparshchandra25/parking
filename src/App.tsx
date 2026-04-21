@@ -148,25 +148,29 @@ export default function App() {
   }
 };
 
-  const handleRelease = async (slotId: number) => {
-    try {
-      const res = await fetch('/api/parking/release', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slotId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification(
-          `Payment: $${data.price.toFixed(2)} (${data.durationHours}hr). Bay ${slotId} is now vacant.`, 
-          'success'
-        );
-        fetchStatus();
-      }
-    } catch (err) {
-      showNotification("Failed to finalize transaction", 'error');
-    }
-  };
+  const handleRelease = (slotId: number) => {
+  setSlots((prev) =>
+    prev.map((slot) => {
+      if (slot.id !== slotId || !slot.occupiedBy) return slot;
+
+      const durationHours =
+        (Date.now() - slot.occupiedBy.entryTime) / (1000 * 60 * 60);
+
+      const rate = prices[slot.occupiedBy.type] || 0;
+      const amount = durationHours * rate;
+
+      showNotification(
+        `Payment: ₹${amount.toFixed(2)} (${durationHours.toFixed(1)} hr)`,
+        "success"
+      );
+
+      return {
+        ...slot,
+        occupiedBy: null,
+      };
+    })
+  );
+};
 
   const showNotification = (msg: string, type: 'success' | 'error') => {
     setNotif({ msg, type });
