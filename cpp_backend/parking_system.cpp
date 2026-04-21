@@ -1,170 +1,168 @@
 #include <iostream>
 #include <vector>
-#include <string>
-#include <memory>
-#include <algorithm>
 #include <ctime>
+#include <iomanip>
+using namespace std;
 
-// --- VEHICLE CLASSES ---
-enum class VehicleType {
-    CAR,
-    BIKE,
-    TRUCK
-};
+enum VehicleType { BIKE, CAR, TRUCK };
+
+string typeToString(VehicleType type) {
+    if (type == BIKE) return "BIKE";
+    if (type == CAR) return "CAR";
+    return "TRUCK";
+}
 
 class Vehicle {
-protected:
-    std::string licensePlate;
+public:
+    string plate;
     VehicleType type;
-    std::time_t entryTime;
+    time_t entryTime;
 
-public:
-    Vehicle(std::string lp, VehicleType t) : licensePlate(lp), type(t) {
-        entryTime = std::time(nullptr);
+    Vehicle(string p, VehicleType t) {
+        plate = p;
+        type = t;
+        entryTime = time(0);
     }
-    virtual ~Vehicle() {}
-
-    virtual std::string getTypeName() const = 0;
-    std::string getLicensePlate() const { return licensePlate; }
-    VehicleType getType() const { return type; }
-    std::time_t getEntryTime() const { return entryTime; }
 };
 
-class Car : public Vehicle {
+class Slot {
 public:
-    Car(std::string lp) : Vehicle(lp, VehicleType::CAR) {}
-    std::string getTypeName() const override { return "Car"; }
-};
-
-class Bike : public Vehicle {
-public:
-    Bike(std::string lp) : Vehicle(lp, VehicleType::BIKE) {}
-    std::string getTypeName() const override { return "Motorcycle"; }
-};
-
-class Truck : public Vehicle {
-public:
-    Truck(std::string lp) : Vehicle(lp, VehicleType::TRUCK) {}
-    std::string getTypeName() const override { return "Truck"; }
-};
-
-// --- PARKING SLOT CLASS ---
-class ParkingSlot {
-private:
-    int slotNumber;
+    int id;
     int level;
-    bool isOccupied;
-    VehicleType supportedType;
-    std::shared_ptr<Vehicle> occupiedBy;
+    VehicleType type;
+    Vehicle* occupiedBy;
 
-public:
-    ParkingSlot(int number, int lvl, VehicleType type) 
-        : slotNumber(number), level(lvl), isOccupied(false), supportedType(type), occupiedBy(nullptr) {}
-
-    int getSlotNumber() const { return slotNumber; }
-    int getLevel() const { return level; }
-    bool getIsOccupied() const { return isOccupied; }
-    VehicleType getSupportedType() const { return supportedType; }
-    
-    bool parkVehicle(std::shared_ptr<Vehicle> v) {
-        if (!isOccupied && v->getType() == supportedType) {
-            occupiedBy = v;
-            isOccupied = true;
-            return true;
-        }
-        return false;
-    }
-
-    void release() {
+    Slot(int i, int l, VehicleType t) {
+        id = i;
+        level = l;
+        type = t;
         occupiedBy = nullptr;
-        isOccupied = false;
     }
 
-    std::shared_ptr<Vehicle> getVehicle() const {
-        return occupiedBy;
+    bool isAvailable() {
+        return occupiedBy == nullptr;
     }
 };
 
-// --- PARKING LOT CLASS ---
-class ParkingLot {
+class ParkingSystem {
 private:
-    std::vector<std::unique_ptr<ParkingSlot>> slots;
+    vector<Slot> slots;
+    float bikeRate = 20;
+    float carRate = 50;
+    float truckRate = 80;
 
 public:
-    ParkingLot() {
-        int id = 1;
-        // Level 1: 10 Bikes, 10 Cars
-        for (int i = 0; i < 10; ++i) slots.push_back(std::make_unique<ParkingSlot>(id++, 1, VehicleType::BIKE));
-        for (int i = 0; i < 10; ++i) slots.push_back(std::make_unique<ParkingSlot>(id++, 1, VehicleType::CAR));
-        
-        // Level 2: 10 Cars, 6 Trucks
-        for (int i = 0; i < 10; ++i) slots.push_back(std::make_unique<ParkingSlot>(id++, 2, VehicleType::CAR));
-        for (int i = 0; i < 6; ++i) slots.push_back(std::make_unique<ParkingSlot>(id++, 2, VehicleType::TRUCK));
-    }
+    ParkingSystem() {
+        // 36 slots (18 per level)
+        for (int i = 1; i <= 36; i++) {
+            int level = (i <= 18) ? 1 : 2;
+            VehicleType type;
 
-    double getPricePerHour(VehicleType type) {
-        switch(type) {
-            case VehicleType::BIKE: return 2.00;
-            case VehicleType::CAR: return 5.00;
-            case VehicleType::TRUCK: return 10.00;
-            default: return 0.0;
+            if (i % 3 == 0) type = CAR;
+            else if (i % 3 == 1) type = BIKE;
+            else type = TRUCK;
+
+            slots.push_back(Slot(i, level, type));
         }
     }
 
-    bool park(std::shared_ptr<Vehicle> v) {
-        for (auto& slot : slots) {
-            if (!slot->getIsOccupied() && slot->getSupportedType() == v->getType()) {
-                return slot->parkVehicle(v);
+    void parkVehicle(string plate, VehicleType type, int level) {
+        for (auto &slot : slots) {
+            if (slot.level == level && slot.type == type && slot.isAvailable()) {
+                slot.occupiedBy = new Vehicle(plate, type);
+                cout << "✅ Vehicle parked at Slot " << slot.id << endl;
+                return;
             }
         }
-        return false;
+        cout << "❌ No available slot for this vehicle type on this level.\n";
     }
 
-    double calculateFee(std::shared_ptr<Vehicle> v) {
-        std::time_t now = std::time(nullptr);
-        double seconds = std::difftime(now, v->getEntryTime());
-        int hours = (int)(seconds / 3600) + 1; // Minimum 1 hour
-        return hours * getPricePerHour(v->getType());
-    }
+    void releaseVehicle(int slotId) {
+        for (auto &slot : slots) {
+            if (slot.id == slotId && slot.occupiedBy != nullptr) {
+                time_t exitTime = time(0);
+                double hours = difftime(exitTime, slot.occupiedBy->entryTime) / 3600.0;
 
-    bool leave(int slotNumber) {
-        for (auto& slot : slots) {
-            if (slot->getSlotNumber() == slotNumber) {
-                if (slot->getIsOccupied()) {
-                    double fee = calculateFee(slot->getVehicle());
-                    std::cout << "Transaction Finished. Fee for " << slot->getVehicle()->getLicensePlate() << ": $" << fee << std::endl;
-                }
-                slot->release();
-                return true;
+                float rate = 0;
+                if (slot.occupiedBy->type == BIKE) rate = bikeRate;
+                else if (slot.occupiedBy->type == CAR) rate = carRate;
+                else rate = truckRate;
+
+                float amount = hours * rate;
+
+                cout << fixed << setprecision(2);
+                cout << "💰 Bill: ₹" << amount << " (" << hours << " hrs)\n";
+
+                delete slot.occupiedBy;
+                slot.occupiedBy = nullptr;
+
+                cout << "🚗 Slot " << slotId << " is now free.\n";
+                return;
             }
         }
-        return false;
+        cout << "❌ Invalid slot or already empty.\n";
     }
 
-    const std::vector<std::unique_ptr<ParkingSlot>>& getSlots() const {
-        return slots;
+    void displayStatus() {
+        cout << "\n--- Parking Status ---\n";
+        for (auto &slot : slots) {
+            cout << "Slot " << slot.id << " (L" << slot.level << ", "
+                 << typeToString(slot.type) << ") : ";
+
+            if (slot.occupiedBy)
+                cout << "Occupied by " << slot.occupiedBy->plate;
+            else
+                cout << "Empty";
+
+            cout << endl;
+        }
     }
 };
 
-// --- MAIN INTERFACE (FOR SYSTEM INTEGRATION) ---
 int main() {
-    std::cout << "Parking Management System C++ Backend (v2.0)" << std::endl;
-    std::cout << "--------------------------------------------" << std::endl;
+    ParkingSystem ps;
 
-    ParkingLot myLot;
+    int choice;
+    while (true) {
+        cout << "\n===== PARKING SYSTEM =====\n";
+        cout << "1. Park Vehicle\n";
+        cout << "2. Release Vehicle\n";
+        cout << "3. Display Status\n";
+        cout << "4. Exit\n";
+        cout << "Enter choice: ";
+        cin >> choice;
 
-    auto testBike = std::make_shared<Bike>("MH-12-CZ-4567");
-    auto testTruck = std::make_shared<Truck>("HR-55-XY-8888");
+        if (choice == 1) {
+            string plate;
+            int type, level;
 
-    if (myLot.park(testBike)) {
-        std::cout << "BIKE Parked Successfully on Level 1" << std::endl;
+            cout << "Enter plate: ";
+            cin >> plate;
+
+            cout << "Type (0=BIKE,1=CAR,2=TRUCK): ";
+            cin >> type;
+
+            cout << "Level (1 or 2): ";
+            cin >> level;
+
+            ps.parkVehicle(plate, (VehicleType)type, level);
+        }
+        else if (choice == 2) {
+            int id;
+            cout << "Enter slot ID: ";
+            cin >> id;
+            ps.releaseVehicle(id);
+        }
+        else if (choice == 3) {
+            ps.displayStatus();
+        }
+        else if (choice == 4) {
+            break;
+        }
+        else {
+            cout << "Invalid choice.\n";
+        }
     }
-
-    if (myLot.park(testTruck)) {
-        std::cout << "TRUCK Parked Successfully on Level 2" << std::endl;
-    }
-
-    myLot.leave(1); // Releasing first slot (Bike)
 
     return 0;
 }

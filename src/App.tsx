@@ -96,11 +96,9 @@ export default function App() {
   setLoading(false);
 };
 
-  useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 5000);
-    return () => clearInterval(interval);
-  }, []);
+ useEffect(() => {
+  fetchStatus();
+}, []);
 
   const handlePark = async (e: React.FormEvent) => {
   e.preventDefault();
